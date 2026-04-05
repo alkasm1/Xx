@@ -2,8 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>النظام الترددي اللغوي — 
-  م : رأفت عمر</title>
+  <title>النظام الترددي اللغوي — ترددات شخصية لكل مستخدم</title>
 
   <style>
     body {
@@ -36,10 +35,17 @@
       margin-bottom: 10px;
     }
 
+    label {
+      display: block;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
     textarea {
       width: 100%;
       padding: 10px;
-      margin-top: 6px;
+      margin-top: 4px;
       border-radius: 8px;
       border: 1px solid #30363d;
       background: #0d1117;
@@ -47,6 +53,16 @@
       font-size: 1rem;
       height: 120px;
       resize: vertical;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+      font-size: 0.95rem;
     }
 
     button {
@@ -67,6 +83,7 @@
       background: #4ade80;
       color: #0d1117;
     }
+    .copy-btn:hover { background: #22c55e; }
 
     .output {
       margin-top: 10px;
@@ -82,39 +99,57 @@
 
     .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 860px) { .row { grid-template-columns: 1fr 1fr; } }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #6e7681;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 
 <body>
 
   <div class="container">
-    <h1>النظام الترددي اللغوي — 
-    م : رأفت عمر</h1>
+    <h1>النظام الترددي اللغوي — ترددات شخصية لكل مستخدم</h1>
+
+    <label>مفتاح المستخدم (رقم كبير مشترك بين المرسل والمستقبل):</label>
+    <input id="userKey" type="number" value="123456789">
 
     <div class="row">
 
       <div>
         <h2>تحويل جملة إلى ترددات</h2>
-        <textarea id="sentenceInput" placeholder="أدخل نصًا عربيًا..."></textarea>
+        <label>أدخل نصًا عربيًا:</label>
+        <textarea id="sentenceInput" placeholder="أدخل نصًا عربيًا هنا..."></textarea>
         <button onclick="encodeSentence()">تحويل</button>
-        <button class="copy-btn" onclick="copyAllFreqs()">نسخ الترددات</button>
+        <button class="copy-btn" onclick="copyAllFreqs()">نسخ جميع الترددات</button>
         <div class="output" id="encodeOutput">—</div>
       </div>
 
       <div>
         <h2>تحويل ترددات إلى جملة</h2>
-        <textarea id="freqListInput" placeholder="أدخل الترددات..."></textarea>
+        <label>أدخل الترددات (كل تردد في سطر):</label>
+        <textarea id="freqListInput" placeholder="مثال:
+1915265
+19757432
+28746170"></textarea>
         <button onclick="decodeFreqList()">تحويل</button>
         <div class="output" id="decodeOutput">—</div>
       </div>
 
     </div>
+
+    <div class="footer">
+      م: رأفت عمر
+    </div>
   </div>
 
 <script>
-  // إعدادات النظام
+  // إعدادات المجال
   const B = 32;
-  const LMAX = 12;   // دعم كلمات طويلة جدًا
+  const LMAX = 12;   // يدعم كلمات طويلة جدًا
   const f0 = 100000;
   const df = 1;
 
@@ -138,10 +173,10 @@
 
   const charToIndex = {};
   for (const [i,ch] of Object.entries(indexToChar)) {
-    if (ch) charToIndex[ch] = parseInt(i);
+    if (ch) charToIndex[ch] = parseInt(i, 10);
   }
 
-  // تقسيم الكلمة إلى بلوكات
+  // تقسيم الكلمة إلى بلوكات بطول LMAX
   function splitWord(word) {
     const blocks = [];
     for (let i = 0; i < word.length; i += LMAX) {
@@ -150,7 +185,7 @@
     return blocks;
   }
 
-  // تحويل بلوك إلى رقم
+  // تحويل بلوك إلى كود عددي
   function wordToCode(word){
     const c = new Array(LMAX).fill(0);
     let pos = 0;
@@ -166,7 +201,7 @@
     return C;
   }
 
-  // تحويل رقم إلى بلوك
+  // تحويل كود عددي إلى بلوك
   function codeToWord(Cbig){
     let C = BigInt(Cbig);
     const digits = [];
@@ -181,11 +216,17 @@
     return w;
   }
 
-  // ترميز جملة
+  // ترميز جملة إلى ترددات مع مفتاح مستخدم
   function encodeSentence(){
-    const sentence = normalizeArabic(
-      document.getElementById("sentenceInput").value.trim()
-    );
+    const keyStr = document.getElementById("userKey").value || "0";
+    const key = BigInt(keyStr);
+
+    const sentenceRaw = document.getElementById("sentenceInput").value.trim();
+    const sentence = normalizeArabic(sentenceRaw);
+    if (!sentence) {
+      document.getElementById("encodeOutput").textContent = "لا يوجد نص.";
+      return;
+    }
 
     const words = sentence.split(/\s+/);
     let allFreqs = [];
@@ -193,8 +234,9 @@
     words.forEach(word => {
       const blocks = splitWord(word);
       blocks.forEach(block => {
-        const C = wordToCode(block);
-        const f = f0 + Number(C) * df;
+        const C = wordToCode(block);   // كود الكلمة
+        const C2 = C ^ key;            // دمج المفتاح الشخصي
+        const f = f0 + Number(C2) * df;
         allFreqs.push(f);
       });
     });
@@ -205,11 +247,16 @@
     window.lastFreqList = allFreqs;
   }
 
-  // نسخ الترددات
+  // نسخ جميع الترددات
   function copyAllFreqs(){
-    if (!window.lastFreqList) return;
+    if (!window.lastFreqList || window.lastFreqList.length === 0) return;
 
     const text = window.lastFreqList.join("\n");
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
 
     const temp = document.createElement("textarea");
     temp.value = text;
@@ -219,19 +266,30 @@
     document.body.removeChild(temp);
   }
 
-  // فك الترددات
+  // فك الترددات إلى جملة مع نفس مفتاح المستخدم
   function decodeFreqList(){
-    const input = document.getElementById("freqListInput").value.trim();
-    const lines = input.split(/\n+/);
+    const keyStr = document.getElementById("userKey").value || "0";
+    const key = BigInt(keyStr);
 
+    const input = document.getElementById("freqListInput").value.trim();
+    if (!input) {
+      document.getElementById("decodeOutput").textContent = "لا توجد ترددات.";
+      return;
+    }
+
+    const lines = input.split(/\n+/);
     const words = [];
 
     lines.forEach(line => {
-      const freq = Number(line.trim());
+      const t = line.trim();
+      if (!t) return;
+
+      const freq = Number(t);
       if (isNaN(freq)) return;
 
-      const C = Math.round((freq - f0) / df);
-      const block = codeToWord(BigInt(C));
+      const C2 = BigInt(Math.round((freq - f0) / df)); // الكود بعد التشفير
+      const C = C2 ^ key;                              // إزالة المفتاح
+      const block = codeToWord(C);
       words.push(block);
     });
 
