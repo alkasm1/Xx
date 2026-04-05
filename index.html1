@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>النظام الترددي اللغوي</title>
+
+  <style>
+    body {
+      font-family: "Cairo", sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #161b22;
+      border-radius: 14px;
+      padding: 28px;
+      border: 1px solid #30363d;
+      box-shadow: 0 0 40px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      text-align: center;
+      color: #58a6ff;
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    h2 {
+      color: #79c0ff;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #e6edf3;
+      font-size: 1rem;
+      height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      background: #238636;
+      color: white;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover { background: #2ea043; }
+
+    .copy-btn {
+      background: #4ade80;
+      color: #0d1117;
+    }
+
+    .output {
+      margin-top: 10px;
+      padding: 12px;
+      background: #0d1117;
+      border: 1px dashed #30363d;
+      border-radius: 8px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 860px) { .row { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>النظام الترددي اللغوي</h1>
+
+    <div class="row">
+      <div>
+        <h2>تحويل جملة إلى ترددات</h2>
+        <textarea id="sentenceInput" placeholder="ألصق نصًا هنا..."></textarea>
+        <button onclick="encodeSentence()">تحويل</button>
+        <button class="copy-btn" onclick="copyAllFreqs()">نسخ الترددات</button>
+        <div class="output" id="encodeOutput">—</div>
+      </div>
+
+      <div>
+        <h2>تحويل ترددات إلى جملة</h2>
+        <textarea id="freqListInput"></textarea>
+        <button onclick="decodeFreqList()">تحويل</button>
+        <div class="output" id="decodeOutput">—</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // إعدادات
+  const B = 32;
+  const LMAX = 12;
+  let f0 = 100000;
+  let df = 1;
+
+  // تحميل القاموس من LocalStorage
+  let freqToWordMap = new Map(JSON.parse(localStorage.getItem("freqMap") || "[]"));
+
+  function saveFreqMap() {
+    localStorage.setItem("freqMap", JSON.stringify([...freqToWordMap.entries()]));
+  }
+
+  function normalizeArabic(s) {
+    return (s || "")
+      .replace(/[إأآ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ؤ/g, "و")
+      .replace(/ئ/g, "ي")
+      .replace(/ة/g, "ه");
+  }
+
+  const indexToChar = {
+    1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+    8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
+    15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
+    22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
+  };
+
+  const charToIndex = {};
+  for (const [i,ch] of Object.entries(indexToChar)) {
+    charToIndex[ch] = parseInt(i, 10);
+  }
+
+  function normalizeWord(word) {
+    let w = normalizeArabic(word).trim();
+    let out = "";
+    for (const ch of w) {
+      if (charToIndex[ch] !== undefined) out += ch;
+    }
+    return out;
+  }
+
+  function splitToWords(sentence) {
+    const s = normalizeArabic(sentence || "").replace(/\s+/g, " ").trim();
+    if (!s) return [];
+    return s.split(" ").map(x => x.trim()).filter(Boolean);
+  }
+
+  function fnv1aHash(str) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return hash >>> 0;
+  }
+
+  window.lastFreqList = null;
+
+  function encodeSentence() {
+    const sentence = document.getElementById("sentenceInput").value || "";
+    const words = splitToWords(sentence);
+
+    const domainSize = (BigInt(B) ** BigInt(LMAX));
+    const allFreqs = [];
+
+    for (const w of words) {
+      const normalized = normalizeWord(w);
+      if (!normalized) continue;
+
+      const hash = fnv1aHash(normalized);
+      const k = BigInt(hash) % domainSize;
+      const f = f0 + Number(k) * df;
+
+      freqToWordMap.set(String(f), normalized);
+      allFreqs.push(String(f));
+    }
+
+    saveFreqMap();
+
+    document.getElementById("encodeOutput").textContent =
+      allFreqs.join("\n");
+
+    window.lastFreqList = allFreqs;
+  }
+
+  function copyAllFreqs() {
+    if (!window.lastFreqList) return;
+
+    const text = window.lastFreqList.join("\n");
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const temp = document.createElement("textarea");
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand("copy");
+    document.body.removeChild(temp);
+  }
+
+  function decodeFreqList() {
+    const input = document.getElementById("freqListInput").value || "";
+    const lines = input.split(/\n+/);
+
+    const decodedWords = [];
+
+    for (const line of lines) {
+      const f = line.trim();
+      if (!f) continue;
+
+      const w = freqToWordMap.get(f);
+      decodedWords.push(w || "—");
+    }
+
+    document.getElementById("decodeOutput").textContent =
+      decodedWords.join(" ");
+  }
+</script>
+</body>
+</html>
