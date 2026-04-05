@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>النظام الترددي اللغوي (نسخة محسّنة: كلمة ↔ تردد)</title>
+  <title>النظام الترددي اللغوي</title>
 
   <style>
     body {
@@ -34,12 +34,6 @@
     h2 {
       color: #79c0ff;
       margin-bottom: 10px;
-    }
-
-    label {
-      margin-top: 10px;
-      display: block;
-      font-size: 0.95rem;
     }
 
     textarea {
@@ -73,7 +67,6 @@
       background: #4ade80;
       color: #0d1117;
     }
-    .copy-btn:hover { background: #22c55e; }
 
     .output {
       margin-top: 10px;
@@ -87,20 +80,8 @@
       word-break: break-word;
     }
 
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      color: #6e7681;
-      font-size: 0.9rem;
-    }
-
     .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 860px) { .row { grid-template-columns: 1fr 1fr; } }
-
-    textarea.mono {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.95rem;
-    }
   </style>
 </head>
 
@@ -109,38 +90,37 @@
     <h1>النظام الترددي اللغوي</h1>
 
     <div class="row">
-      <div class="card">
-        <h2>تحويل جملة إلى ترددات (لكل كلمة)</h2>
-        <label>أدخل نصًا عربيًا (يمكن أن يكون مقالة كاملة):</label>
-        <textarea id="sentenceInput" placeholder="ألصق هنا أي نص طويل..."></textarea>
+      <div>
+        <h2>تحويل جملة إلى ترددات</h2>
+        <textarea id="sentenceInput" placeholder="ألصق نصًا هنا..."></textarea>
         <button onclick="encodeSentence()">تحويل</button>
-        <button class="copy-btn" onclick="copyAllFreqs()">نسخ جميع الترددات</button>
+        <button class="copy-btn" onclick="copyAllFreqs()">نسخ الترددات</button>
         <div class="output" id="encodeOutput">—</div>
       </div>
 
-      <div class="card">
+      <div>
         <h2>تحويل ترددات إلى جملة</h2>
-        <label>أدخل الترددات (كل تردد في سطر):</label>
-        <textarea id="freqListInput" class="mono"></textarea>
+        <textarea id="freqListInput"></textarea>
         <button onclick="decodeFreqList()">تحويل</button>
         <div class="output" id="decodeOutput">—</div>
       </div>
     </div>
-
-    <div class="footer">
-      م: رأفت عمر —
-    </div>
   </div>
 
 <script>
-  // إعدادات المجال
+  // إعدادات
   const B = 32;
   const LMAX = 12;
-
   let f0 = 100000;
   let df = 1;
 
-  // تطبيع عربي
+  // تحميل القاموس من LocalStorage
+  let freqToWordMap = new Map(JSON.parse(localStorage.getItem("freqMap") || "[]"));
+
+  function saveFreqMap() {
+    localStorage.setItem("freqMap", JSON.stringify([...freqToWordMap.entries()]));
+  }
+
   function normalizeArabic(s) {
     return (s || "")
       .replace(/[إأآ]/g, "ا")
@@ -163,8 +143,7 @@
   }
 
   function normalizeWord(word) {
-    let w = normalizeArabic(word);
-    w = (w || "").trim();
+    let w = normalizeArabic(word).trim();
     let out = "";
     for (const ch of w) {
       if (charToIndex[ch] !== undefined) out += ch;
@@ -187,7 +166,6 @@
     return hash >>> 0;
   }
 
-  const freqToWordMap = new Map();
   window.lastFreqList = null;
 
   function encodeSentence() {
@@ -209,18 +187,16 @@
       allFreqs.push(String(f));
     }
 
-    const html = `
-      <p>عدد الكلمات: ${allFreqs.length}</p>
-      <textarea class="mono" style="width:100%;height:250px;background:#0d1117;color:white;border:1px solid #30363d;border-radius:8px;">${allFreqs.join("\n")}</textarea>
-    `;
+    saveFreqMap();
 
-    document.getElementById("encodeOutput").innerHTML = html;
+    document.getElementById("encodeOutput").textContent =
+      allFreqs.join("\n");
+
     window.lastFreqList = allFreqs;
   }
 
-  // نسخة تعمل على GitHub Pages
   function copyAllFreqs() {
-    if (!window.lastFreqList || window.lastFreqList.length === 0) return;
+    if (!window.lastFreqList) return;
 
     const text = window.lastFreqList.join("\n");
 
