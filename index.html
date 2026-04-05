@@ -2,7 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>النظام الترددي اللغوي</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>النظام الترددي اللغوي (نسخة محسّنة: كلمة ↔ تردد)</title>
 
   <style>
     body {
@@ -66,18 +67,13 @@
       transition: 0.2s;
     }
 
-    button:hover {
-      background: #2ea043;
-    }
+    button:hover { background: #2ea043; }
 
     .copy-btn {
       background: #4ade80;
       color: #0d1117;
     }
-
-    .copy-btn:hover {
-      background: #22c55e;
-    }
+    .copy-btn:hover { background: #22c55e; }
 
     .output {
       margin-top: 10px;
@@ -87,6 +83,8 @@
       border-radius: 8px;
       font-family: "JetBrains Mono", monospace;
       font-size: 0.95rem;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .footer {
@@ -95,18 +93,24 @@
       color: #6e7681;
       font-size: 0.9rem;
     }
+
+    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 860px) { .row { grid-template-columns: 1fr 1fr; } }
+
+    textarea.mono {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.95rem;
+    }
   </style>
 </head>
 
 <body>
-
   <div class="container">
     <h1>النظام الترددي اللغوي</h1>
 
     <div class="row">
-
       <div class="card">
-        <h2>تحويل جملة إلى ترددات</h2>
+        <h2>تحويل جملة إلى ترددات (لكل كلمة)</h2>
         <label>أدخل نصًا عربيًا (يمكن أن يكون مقالة كاملة):</label>
         <textarea id="sentenceInput" placeholder="ألصق هنا أي نص طويل..."></textarea>
         <button onclick="encodeSentence()">تحويل</button>
@@ -116,128 +120,154 @@
 
       <div class="card">
         <h2>تحويل ترددات إلى جملة</h2>
-        <label>أدخل الترددات (كل تردد في سطر):</label>
-        <textarea id="freqListInput"></textarea>
+        <label>أدخل الترددات (كل تردد في سطر). ملاحظة: سيُفكّ داخل نفس الجلسة فقط:</label>
+        <textarea id="freqListInput" class="mono"></textarea>
         <button onclick="decodeFreqList()">تحويل</button>
         <div class="output" id="decodeOutput">—</div>
       </div>
-
     </div>
 
     <div class="footer">
-      م: رأفت عمر — تعديل LMAX=12 بواسطة برهوم
+      م: رأفت عمر — نسخة محسّنة: كلمة ↔ تردد (بدون بلوكات متصلة)
     </div>
-
   </div>
 
 <script>
+  // إعدادات المجال (نستخدمها كعدد أكواد ممكنة)
   const B = 32;
   const LMAX = 12;
 
+  // تردد الأساس والخطوة
   let f0 = 100000;
   let df = 1;
 
+  // 1) تطبيع عربي بسيط (يدمج أشكال الألف/الهمزة/التاء... إلخ)
+  function normalizeArabic(s) {
+    return (s || "")
+      .replace(/[إأآ]/g, "ا")
+      .replace(/ى/g, "ي")
+      .replace(/ؤ/g, "و")
+      .replace(/ئ/g, "ي")
+      .replace(/ة/g, "ه");
+  }
+
+  // تطبيع لكلمة (يُبقي الحروف المدعومة فقط ويحولها لمجموعة indexToChar)
   const indexToChar = {
-    0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+    1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
     8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
     15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
     22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
   };
 
+  // ملاحظة: قمنا بحذف 0 من الأحرف (كما في الكود السابق كانت 0:"")؛ هنا نحتاج فهرسة الحروف المدعومة.
   const charToIndex = {};
   for (const [i,ch] of Object.entries(indexToChar)) {
-    if (ch) charToIndex[ch] = parseInt(i);
+    charToIndex[ch] = parseInt(i, 10);
   }
 
-  function splitWord(word) {
-    const blocks = [];
-    for (let i = 0; i < word.length; i += LMAX) {
-      blocks.push(word.slice(i, i + LMAX));
+  function normalizeWord(word) {
+    let w = normalizeArabic(word);
+
+    // نزيل العلامات غير الحروف العربية/الفضاء
+    // (لكننا هنا سنستعملها للكلمة فقط، لذا نحذف ما ليس ضمن [ا-ي] أو باقي الحروف المدعومة عبر charToIndex)
+    w = (w || "").trim();
+
+    // فلترة حسب الحروف المدعومة لدينا:
+    let out = "";
+    for (const ch of w) {
+      // الحروف العربية الأساسية المدعومة عندنا ضمن indexToChar:
+      if (charToIndex[ch] !== undefined) out += ch;
+      // أيضًا نسمح بـ " " لا يجب أن يظهر هنا عادةً
     }
-    return blocks;
+    return out;
   }
 
-  function wordToCode(word){
-    const c = new Array(LMAX).fill(0);
-    let pos = 0;
-    for (let i = word.length - 1; i >= 0; i--){
-      const idx = charToIndex[word[i]];
-      if (idx === undefined) throw new Error("حرف غير مدعوم: " + word[i]);
-      c[pos++] = idx;
-    }
-    let C = 0n;
-    for (let i = 0; i < LMAX; i++){
-      C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
-    }
-    return C;
+  // 2) تقسيم جملة إلى كلمات مع الحفاظ على معيار "كلمة"
+  function splitToWords(sentence) {
+    // نفضّل فصلًا عبر الفراغات، مع تنظيف بسيط قبلها
+    const s = normalizeArabic(sentence || "").replace(/\s+/g, " ").trim();
+    if (!s) return [];
+    return s.split(" ").map(x => x.trim()).filter(Boolean);
   }
 
-  function codeToWord(Cbig){
-    let C = BigInt(Cbig);
-    const digits = [];
-    for (let i = 0; i < LMAX; i++){
-      digits.push(Number(C % BigInt(B)));
-      C /= BigInt(B);
+  // 3) Hash ثابت لكل كلمة (قابل للاستخدام لترميز كلمة→k)
+  function fnv1aHash(str) {
+    // FNV-1a 32-bit
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
     }
-    let w = "";
-    for (let i = LMAX - 1; i >= 0; i--){
-      w += indexToChar[digits[i]] || "";
-    }
-    return w;
+    return hash >>> 0; // unsigned
   }
 
-  function encodeSentence(){
-    const sentence = document.getElementById("sentenceInput").value.trim();
-    const words = sentence.split(/\s+/);
-    let allFreqs = [];
+  // قاموس: حفظ الترجمة داخل نفس الجلسة (لكي يكون فك التردد قابلًا عمليًا)
+  const freqToWordMap = new Map(); // key: freq as string, value: normalizedWord
 
-    let totalBlocks = 0;
+  // مخزن آخر قائمة ترددات لزر النسخ
+  window.lastFreqList = null;
 
-    words.forEach(word => {
-      const blocks = splitWord(word);
-      totalBlocks += blocks.length;
+  function encodeSentence() {
+    // لا نستخدم الآن wordToCode/blocks: نريد ترددًا واحدًا لكل كلمة
+    const sentence = document.getElementById("sentenceInput").value || "";
+    const words = splitToWords(sentence);
 
-      blocks.forEach(block => {
-        const C = wordToCode(block);
-        const f = f0 + Number(C) * df;
-        allFreqs.push(f);
-      });
-    });
+    const domainSize = (BigInt(B) ** BigInt(LMAX)); // B^LMAX
+    const allFreqs = [];
+    const decodedPreviewWords = []; // فقط للعرض
 
-    let html = `
-      <p>عدد الكلمات: ${words.length}</p>
-      <p>عدد البلوكات: ${totalBlocks}</p>
-      <p>عدد الترددات الناتجة: ${allFreqs.length}</p>
-      <textarea style="width:100%;height:250px;background:#0d1117;color:white;border:1px solid #30363d;border-radius:8px;">${allFreqs.join("\n")}</textarea>
+    for (const w of words) {
+      const normalized = normalizeWord(w);
+      if (!normalized) continue; // إن لم تنتج حروف مدعومة
+      const hash = fnv1aHash(normalized);
+      const k = BigInt(hash) % domainSize;
+
+      const f = f0 + Number(k) * df;
+
+      // حفظ mapping للفك داخل نفس الجلسة
+      freqToWordMap.set(String(f), normalized);
+
+      allFreqs.push(String(f));
+      decodedPreviewWords.push(normalized);
+    }
+
+    const html = `
+      <p>عدد الكلمات (بعد التنظيف): ${decodedPreviewWords.length}</p>
+      <p>عدد الترددات الناتجة (لكل كلمة): ${allFreqs.length}</p>
+      <textarea class="mono" style="width:100%;height:250px;background:#0d1117;color:white;border:1px solid #30363d;border-radius:8px;">${allFreqs.join("\n")}</textarea>
     `;
 
     document.getElementById("encodeOutput").innerHTML = html;
-
     window.lastFreqList = allFreqs;
   }
 
-  function copyAllFreqs(){
-    if (!window.lastFreqList) return;
+  function copyAllFreqs() {
+    if (!window.lastFreqList || window.lastFreqList.length === 0) return;
     navigator.clipboard.writeText(window.lastFreqList.join("\n"));
   }
 
-  function decodeFreqList(){
-    const input = document.getElementById("freqListInput").value.trim();
+  function decodeFreqList() {
+    const input = document.getElementById("freqListInput").value || "";
     const lines = input.split(/\n+/);
-    const words = [];
 
-    lines.forEach(line => {
-      const freq = Number(line.trim());
-      if (isNaN(freq)) return;
+    const decodedWords = [];
 
-      const C = Math.round((freq - f0) / df);
-      const block = codeToWord(BigInt(C));
-      words.push(block);
-    });
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) continue;
 
-    document.getElementById("decodeOutput").textContent = words.join(" ");
+      const f = Number(t);
+      if (!Number.isFinite(f)) continue;
+
+      // نتوقع أن التردد محفوظ كنص مطابق تمامًا من encodeSentence
+      const key = String(f);
+
+      const w = freqToWordMap.get(key);
+      decodedWords.push(w ? w : "—");
+    }
+
+    document.getElementById("decodeOutput").textContent = decodedWords.join(" ");
   }
 </script>
-
 </body>
 </html>
