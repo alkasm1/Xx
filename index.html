@@ -2,8 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>النظام الترددي اللغوي</title>
+  <title>النظام الترددي اللغوي — نسخة ثابتة 100%</title>
 
   <style>
     body {
@@ -86,13 +85,15 @@
 </head>
 
 <body>
+
   <div class="container">
-    <h1>النظام الترددي اللغوي</h1>
+    <h1>النظام الترددي اللغوي — ثابت 100%</h1>
 
     <div class="row">
+
       <div>
         <h2>تحويل جملة إلى ترددات</h2>
-        <textarea id="sentenceInput" placeholder="ألصق نصًا هنا..."></textarea>
+        <textarea id="sentenceInput" placeholder="أدخل نصًا عربيًا..."></textarea>
         <button onclick="encodeSentence()">تحويل</button>
         <button class="copy-btn" onclick="copyAllFreqs()">نسخ الترددات</button>
         <div class="output" id="encodeOutput">—</div>
@@ -100,27 +101,22 @@
 
       <div>
         <h2>تحويل ترددات إلى جملة</h2>
-        <textarea id="freqListInput"></textarea>
+        <textarea id="freqListInput" placeholder="أدخل الترددات..."></textarea>
         <button onclick="decodeFreqList()">تحويل</button>
         <div class="output" id="decodeOutput">—</div>
       </div>
+
     </div>
   </div>
 
 <script>
-  // إعدادات
+  // إعدادات النظام
   const B = 32;
-  const LMAX = 12;
-  let f0 = 100000;
-  let df = 1;
+  const LMAX = 12;   // دعم كلمات طويلة جدًا
+  const f0 = 100000;
+  const df = 1;
 
-  // تحميل القاموس من LocalStorage
-  let freqToWordMap = new Map(JSON.parse(localStorage.getItem("freqMap") || "[]"));
-
-  function saveFreqMap() {
-    localStorage.setItem("freqMap", JSON.stringify([...freqToWordMap.entries()]));
-  }
-
+  // التطبيع العربي
   function normalizeArabic(s) {
     return (s || "")
       .replace(/[إأآ]/g, "ا")
@@ -130,8 +126,9 @@
       .replace(/ة/g, "ه");
   }
 
+  // جدول الحروف
   const indexToChar = {
-    1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+    0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
     8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
     15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",
     22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
@@ -139,55 +136,66 @@
 
   const charToIndex = {};
   for (const [i,ch] of Object.entries(indexToChar)) {
-    charToIndex[ch] = parseInt(i, 10);
+    if (ch) charToIndex[ch] = parseInt(i);
   }
 
-  function normalizeWord(word) {
-    let w = normalizeArabic(word).trim();
-    let out = "";
-    for (const ch of w) {
-      if (charToIndex[ch] !== undefined) out += ch;
+  // تقسيم الكلمة إلى بلوكات
+  function splitWord(word) {
+    const blocks = [];
+    for (let i = 0; i < word.length; i += LMAX) {
+      blocks.push(word.slice(i, i + LMAX));
     }
-    return out;
+    return blocks;
   }
 
-  function splitToWords(sentence) {
-    const s = normalizeArabic(sentence || "").replace(/\s+/g, " ").trim();
-    if (!s) return [];
-    return s.split(" ").map(x => x.trim()).filter(Boolean);
-  }
-
-  function fnv1aHash(str) {
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-      hash ^= str.charCodeAt(i);
-      hash = Math.imul(hash, 0x01000193);
+  // تحويل بلوك إلى رقم
+  function wordToCode(word){
+    const c = new Array(LMAX).fill(0);
+    let pos = 0;
+    for (let i = word.length - 1; i >= 0; i--){
+      const idx = charToIndex[word[i]];
+      if (idx === undefined) throw new Error("حرف غير مدعوم: " + word[i]);
+      c[pos++] = idx;
     }
-    return hash >>> 0;
+    let C = 0n;
+    for (let i = 0; i < LMAX; i++){
+      C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
+    }
+    return C;
   }
 
-  window.lastFreqList = null;
-
-  function encodeSentence() {
-    const sentence = document.getElementById("sentenceInput").value || "";
-    const words = splitToWords(sentence);
-
-    const domainSize = (BigInt(B) ** BigInt(LMAX));
-    const allFreqs = [];
-
-    for (const w of words) {
-      const normalized = normalizeWord(w);
-      if (!normalized) continue;
-
-      const hash = fnv1aHash(normalized);
-      const k = BigInt(hash) % domainSize;
-      const f = f0 + Number(k) * df;
-
-      freqToWordMap.set(String(f), normalized);
-      allFreqs.push(String(f));
+  // تحويل رقم إلى بلوك
+  function codeToWord(Cbig){
+    let C = BigInt(Cbig);
+    const digits = [];
+    for (let i = 0; i < LMAX; i++){
+      digits.push(Number(C % BigInt(B)));
+      C /= BigInt(B);
     }
+    let w = "";
+    for (let i = LMAX - 1; i >= 0; i--){
+      w += indexToChar[digits[i]] || "";
+    }
+    return w;
+  }
 
-    saveFreqMap();
+  // ترميز جملة
+  function encodeSentence(){
+    const sentence = normalizeArabic(
+      document.getElementById("sentenceInput").value.trim()
+    );
+
+    const words = sentence.split(/\s+/);
+    let allFreqs = [];
+
+    words.forEach(word => {
+      const blocks = splitWord(word);
+      blocks.forEach(block => {
+        const C = wordToCode(block);
+        const f = f0 + Number(C) * df;
+        allFreqs.push(f);
+      });
+    });
 
     document.getElementById("encodeOutput").textContent =
       allFreqs.join("\n");
@@ -195,15 +203,11 @@
     window.lastFreqList = allFreqs;
   }
 
-  function copyAllFreqs() {
+  // نسخ الترددات
+  function copyAllFreqs(){
     if (!window.lastFreqList) return;
 
     const text = window.lastFreqList.join("\n");
-
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text);
-      return;
-    }
 
     const temp = document.createElement("textarea");
     temp.value = text;
@@ -213,23 +217,26 @@
     document.body.removeChild(temp);
   }
 
-  function decodeFreqList() {
-    const input = document.getElementById("freqListInput").value || "";
+  // فك الترددات
+  function decodeFreqList(){
+    const input = document.getElementById("freqListInput").value.trim();
     const lines = input.split(/\n+/);
 
-    const decodedWords = [];
+    const words = [];
 
-    for (const line of lines) {
-      const f = line.trim();
-      if (!f) continue;
+    lines.forEach(line => {
+      const freq = Number(line.trim());
+      if (isNaN(freq)) return;
 
-      const w = freqToWordMap.get(f);
-      decodedWords.push(w || "—");
-    }
+      const C = Math.round((freq - f0) / df);
+      const block = codeToWord(BigInt(C));
+      words.push(block);
+    });
 
     document.getElementById("decodeOutput").textContent =
-      decodedWords.join(" ");
+      words.join(" ");
   }
 </script>
+
 </body>
 </html>
