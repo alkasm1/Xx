@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALM System — النظام الترددي اللغوي</title>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --secondary: #3b82f6;
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --input-bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--primary);
+            margin: 0;
+            letter-spacing: -1px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        .key-section {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .key-section i {
+            font-size: 1.5rem;
+            color: var(--secondary);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 850px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .container { margin: 10px auto; }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+            margin-top: 0;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        textarea, input {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white;
+            padding: 12px;
+            font-family: 'Cairo';
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus, input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        textarea { height: 120px; resize: none; }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Cairo';
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        .btn-outline { 
+            background: transparent; 
+            border: 1px solid var(--border); 
+            color: var(--text-main);
+        }
+        .btn-outline:hover { background: var(--border); }
+
+        .output-container {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            border: 1px solid var(--border);
+            min-height: 50px;
+            position: relative;
+        }
+
+        .output-content {
+            font-family: 'monospace';
+            font-size: 0.95rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #10b981;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* خاص بتأثير النسخ */
+        .copy-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-wave-square"></i> النظام الترددي اللغوي</h1>
+            <p>تشفير وفك تشفير النصوص بناءً على الترددات الشخصية</p>
+        </header>
+
+        <section class="key-section">
+            <i class="fas fa-key"></i>
+            <div style="flex: 1;">
+                <label>مفتاح المستخدم الخاص (Key):</label>
+                <input id="userKey" type="number" value="123456789" style="width: 100%;">
+            </div>
+        </section>
+
+        <main class="main-grid">
+            <!-- قسم التشفير -->
+            <div class="card">
+                <h2><i class="fas fa-lock"></i> تشفير النص</h2>
+                <label>النص العربي الأصلي:</label>
+                <textarea id="sentenceInput" placeholder="اكتب النص هنا للتحويل إلى ترددات..."></textarea>
+                
+                <div class="actions">
+                    <button class="btn-primary" onclick="encodeSentence()">
+                        <i class="fas fa-sync-alt"></i> تحويل
+                    </button>
+                    <button class="btn-outline" onclick="copyAllFreqs()">
+                        <i class="fas fa-copy"></i> نسخ
+                    </button>
+                </div>
+
+                <div class="output-container">
+                    <div class="output-content" id="encodeOutput">في انتظار المدخلات...</div>
+                </div>
+            </div>
+
+            <!-- قسم فك التشفير -->
+            <div class="card">
+                <h2><i class="fas fa-unlock-alt"></i> فك التشفير</h2>
+                <label>قائمة الترددات (كل تردد في سطر):</label>
+                <textarea id="freqListInput" placeholder="أدخل الترددات هنا لاستعادة النص..."></textarea>
+                
+                <div class="actions">
+                    <button class="btn-primary" onclick="decodeFreqList()" style="background: var(--secondary);">
+                        <i class="fas fa-magic"></i> استعادة النص
+                    </button>
+                </div>
+
+                <div class="output-container">
+                    <div class="output-content" id="decodeOutput" style="color: var(--secondary);">في انتظار الترددات...</div>
+                </div>
+            </div>
+        </main>
+
+        <div class="footer">
+             جميع الحقوق محفوظة &copy; م: رأفت عمر | ALM Frequency System
+        </div>
+    </div>
+
+    <div id="copyToast" class="copy-toast">تم النسخ بنجاح!</div>
+
+<script>
+    // --- منطق الخوارزمية (بدون تغيير) ---
+    const B = 32;
+    const LMAX = 12;
+    const f0 = 100000;
+    const df = 1;
+
+    const indexToChar = {
+        0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",21:"ق",22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
+    };
+
+    const charToIndex = {};
+    for (const [i,ch] of Object.entries(indexToChar)) { if (ch) charToIndex[ch] = parseInt(i, 10); }
+
+    function normalizeArabic(s) {
+        return (s || "").replace(/[إأآ]/g, "ا").replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/ة/g, "ه");
+    }
+
+    function wordToCode(word){
+        const c = new Array(LMAX).fill(0);
+        let pos = 0;
+        for (let i = word.length - 1; i >= 0; i--){
+            const idx = charToIndex[word[i]];
+            if (idx !== undefined) c[pos++] = idx;
+        }
+        let C = 0n;
+        for (let i = 0; i < LMAX; i++) C += BigInt(c[i]) * (BigInt(B) ** BigInt(i));
+        return C;
+    }
+
+    function codeToWord(Cbig){
+        let C = BigInt(Cbig);
+        const digits = [];
+        for (let i = 0; i < LMAX; i++){
+            digits.push(Number(C % BigInt(B)));
+            C /= BigInt(B);
+        }
+        let w = "";
+        for (let i = LMAX - 1; i >= 0; i--) w += indexToChar[digits[i]] || "";
+        return w;
+    }
+
+    function encodeSentence(){
+        const key = BigInt(document.getElementById("userKey").value || "0");
+        const sentence = normalizeArabic(document.getElementById("sentenceInput").value.trim());
+        if (!sentence) return;
+
+        const words = sentence.split(/\s+/);
+        let allFreqs = [];
+        words.forEach(word => {
+            const blocks = [];
+            for (let i = 0; i < word.length; i += LMAX) blocks.push(word.slice(i, i + LMAX));
+            blocks.forEach(block => {
+                const C = wordToCode(block);
+                const C2 = C ^ key;
+                allFreqs.push(f0 + Number(C2) * df);
+            });
+        });
+        document.getElementById("encodeOutput").textContent = allFreqs.join("\n");
+        window.lastFreqList = allFreqs;
+    }
+
+    function decodeFreqList(){
+        const key = BigInt(document.getElementById("userKey").value || "0");
+        const input = document.getElementById("freqListInput").value.trim();
+        if (!input) return;
+
+        const lines = input.split(/\n+/);
+        const words = lines.map(line => {
+            const freq = Number(line.trim());
+            if (isNaN(freq)) return "";
+            const C2 = BigInt(Math.round((freq - f0) / df));
+            return codeToWord(C2 ^ key);
+        });
+        document.getElementById("decodeOutput").textContent = words.join(" ");
+    }
+
+    function copyAllFreqs(){
+        const text = document.getElementById("encodeOutput").textContent;
+        if (text.includes("...")) return;
+        navigator.clipboard.writeText(text);
+        const toast = document.getElementById("copyToast");
+        toast.style.display = "block";
+        setTimeout(() => toast.style.display = "none", 2000);
+    }
+</script>
+
+</body>
+</html>
