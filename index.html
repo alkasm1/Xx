@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>النظام الترددي اللغوي v1.1</title>
+
+<style>
+body {
+  font-family: "Cairo", sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #161b22;
+  border-radius: 14px;
+  padding: 28px;
+  border: 1px solid #30363d;
+}
+
+h1 {
+  text-align: center;
+  color: #58a6ff;
+}
+
+textarea, input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+button {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #238636;
+  color: white;
+  cursor: pointer;
+}
+
+.output {
+  margin-top: 10px;
+  padding: 12px;
+  background: #0d1117;
+  border: 1px dashed #30363d;
+  white-space: pre-wrap;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>النظام الترددي اللغوي v1.1</h1>
+
+<label>المفتاح:</label>
+<input id="userKey" type="number" value="123456789">
+
+<h3>الإدخال</h3>
+<textarea id="sentenceInput"></textarea>
+<button onclick="encodeSentence()">تحويل</button>
+
+<div class="output" id="encodeOutput">—</div>
+
+<hr>
+
+<h3>فك التشفير</h3>
+<textarea id="freqListInput"></textarea>
+<button onclick="decodeFreqList()">فك</button>
+
+<div class="output" id="decodeOutput">—</div>
+
+</div>
+
+<script>
+
+// ================= CONFIG =================
+const B = 32;
+const LMAX = 12;
+const f0 = 100000n;
+const df = 1n;
+const END_MARKER = 999999999n;
+
+// ================= NORMALIZATION =================
+function normalizeArabic(s) {
+  return (s || "")
+    .replace(/[إأآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه");
+}
+
+// ================= TABLE =================
+const indexToChar = {
+0:"",1:"ا",2:"ب",3:"ت",4:"ث",5:"ج",6:"ح",7:"خ",
+8:"د",9:"ذ",10:"ر",11:"ز",12:"س",13:"ش",14:"ص",
+15:"ض",16:"ط",17:"ظ",18:"ع",19:"غ",20:"ف",
+21:"ق",22:"ك",23:"ل",24:"م",25:"ن",26:"ه",27:"و",28:"ي"
+};
+
+const charToIndex = {};
+for (const k in indexToChar) {
+  if (indexToChar[k]) charToIndex[indexToChar[k]] = BigInt(k);
+}
+
+// ================= WORD SPLIT =================
+function splitWord(word){
+  const out=[];
+  for(let i=0;i<word.length;i+=LMAX){
+    out.push(word.slice(i,i+LMAX));
+  }
+  return out;
+}
+
+// ================= ENCODE WORD =================
+function wordToCode(word){
+  const c = new Array(LMAX).fill(0n);
+  let pos = 0;
+
+  for(let i=word.length-1;i>=0;i--){
+    const idx = charToIndex[word[i]];
+    if(idx === undefined) continue;
+    c[pos++] = idx;
+    if(pos >= LMAX) break;
+  }
+
+  let C = 0n;
+  for(let i=0;i<LMAX;i++){
+    C += c[i] * (BigInt(B) ** BigInt(i));
+  }
+  return C;
+}
+
+// ================= DECODE WORD =================
+function codeToWord(C){
+  let out="";
+  for(let i=0;i<LMAX;i++){
+    const d = Number(C % BigInt(B));
+    C /= BigInt(B);
+    if(d) out = indexToChar[d] + out;
+  }
+  return out;
+}
+
+// ================= ENCODE =================
+function encodeSentence(){
+
+  const key = BigInt(document.getElementById("userKey").value || "0");
+
+  let text = normalizeArabic(
+    document.getElementById("sentenceInput").value.trim()
+  );
+
+  const words = text.split(/\s+/);
+
+  let allFreqs = [];
+
+  for(const word of words){
+    const blocks = splitWord(word);
+
+    for(const block of blocks){
+
+      const C = wordToCode(block);
+      const C2 = C ^ key;
+
+      const freq = f0 + C2 * df;
+
+      allFreqs.push(freq);
+    }
+  }
+
+  // marker نهاية
+  allFreqs.push(f0 + END_MARKER);
+
+  document.getElementById("encodeOutput").textContent =
+    allFreqs.join("\n");
+
+  window.lastFreqList = allFreqs;
+}
+
+// ================= DECODE =================
+function decodeFreqList(){
+
+  const key = BigInt(document.getElementById("userKey").value || "0");
+
+  const input = document.getElementById("freqListInput").value.trim();
+  const lines = input.split(/\n+/);
+
+  let words = [];
+
+  for(const line of lines){
+
+    const freq = BigInt(line.trim());
+    if(!freq) continue;
+
+    const C2 = freq - f0;
+
+    if(C2 === END_MARKER) break;
+
+    const C = C2 ^ key;
+
+    const word = codeToWord(C);
+
+    if(word) words.push(word);
+  }
+
+  document.getElementById("decodeOutput").textContent =
+    words.join(" ");
+}
+
+</script>
+
+</body>
+</html>
